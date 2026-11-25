@@ -777,16 +777,21 @@ class TestRepo(unittest.TestCase):
 class TestNewDaySensors(unittest.TestCase):
     def test_entity_ids_declared(self):
         c = const
-        self.assertEqual(c.ENTITY_TODAY_REST, 'binary_sensor.workday_maintenance_today_rest')
+        self.assertEqual(c.ENTITY_TODAY, 'binary_sensor.workday_maintenance_today')
+        self.assertEqual(c.ENTITY_TOMORROW, 'binary_sensor.workday_maintenance_tomorrow')
         self.assertEqual(c.ENTITY_TODAY_DATE, 'sensor.workday_maintenance_today_date')
         self.assertEqual(c.ENTITY_TODAY_WEEKDAY, 'sensor.workday_maintenance_today_weekday')
 
-    def test_binary_sensor_registers_rest(self):
+    def test_redundant_rest_sensor_removed(self):
+        """'今天是否休息日'是'是否工作日'取反，冗余实体已删除。"""
         b = (PKG / 'binary_sensor.py').read_text(encoding='utf-8')
-        self.assertIn('class TodayRestSensor', b)
-        self.assertIn('TodayRestSensor(coordinator, entry)', b)
-        self.assertIn('return not bool(self.wd.get("today_work"))', b)
-        self.assertIn('ENTITY_TODAY_REST', b)
+        c = (PKG / 'const.py').read_text(encoding='utf-8')
+        self.assertNotIn('TodayRestSensor', b)
+        self.assertNotIn('ENTITY_TODAY_REST', b)
+        self.assertNotIn('ENTITY_TODAY_REST', c)
+        self.assertNotIn('今天是否休息日', b)
+        self.assertIn('TodaySensor(coordinator, entry)', b)
+        self.assertIn('TomorrowSensor(coordinator, entry)', b)
 
     def test_sensor_registers_date_and_weekday(self):
         s = (PKG / 'sensor.py').read_text(encoding='utf-8')
