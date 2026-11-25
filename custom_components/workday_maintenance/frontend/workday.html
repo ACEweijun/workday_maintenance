@@ -27,6 +27,8 @@
     <div class="cal-legend"><span class="lg work">上班</span><span class="lg rest">休息</span><span class="lg cust-rest">标休</span><span class="lg cust-work">标班</span></div>
   </section>
 
+  <button class="more-toggle" id="moreToggle" aria-expanded="false"><span class="chev" id="moreChev">▸</span> 更多设置</button>
+  <div id="morePanel" hidden>
   <section class="card fold-card">
     <div class="fold" data-fold="todos"><span class="chev">▸</span><b>我的待办</b><span class="spacer"></span>
       <span class="summary" id="todoSummary"></span><button class="ghost" id="todoAdd">+ 新增</button></div>
@@ -57,6 +59,7 @@
       <span class="summary" id="dueSummary"></span></div>
     <div class="fold-body" id="fold-due" hidden><div id="dueList"></div></div>
   </section>
+  </div><!-- /morePanel -->
 </main>
 
 <div class="modal-mask" id="todoMask" hidden>
@@ -117,6 +120,8 @@
   var customDirty = false, dueTarget = null;
   var ANN_TYPES = { none: '不重复', week: '每周', month: '每月', quarter: '每季度', year: '每年' };
   var FOLD_KEY = 'workday_maintenance_fold2', fold = {};
+  var moreOpen = false;
+  try { moreOpen = localStorage.getItem('workday_maintenance_more_open') === '1'; } catch (e) { }
   try { fold = JSON.parse(localStorage.getItem(FOLD_KEY) || '{}') || {}; } catch (e) { fold = {}; }
 
   var loader = M.createLoader({
@@ -496,7 +501,7 @@
   function render() {
     renderStats(); renderCal(); renderTodos(); renderAnns(); renderCustom(); renderDue();
     if (menuDate) $('cellMenu').innerHTML = menuHtml();
-    applyFolds();
+    applyFolds(); applyMore();
   }
   function applyFolds() {
     ['todos', 'anns', 'custom', 'due'].forEach(function (k) {
@@ -513,6 +518,18 @@
     fold[k] = !fold[k];
     try { localStorage.setItem(FOLD_KEY, JSON.stringify(fold)); } catch (e) { }
     applyFolds();
+  }
+  var MORE_KEY = 'workday_maintenance_more_open';
+  function applyMore() {
+    var open = !!moreOpen;
+    var panel = $('morePanel'); if (panel) panel.hidden = !open;
+    var btn = $('moreToggle'); if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    var chev = $('moreChev'); if (chev) chev.textContent = open ? '▾' : '▸';
+  }
+  function toggleMore() {
+    moreOpen = !moreOpen;
+    try { localStorage.setItem(MORE_KEY, moreOpen ? '1' : '0'); } catch (e) { }
+    applyMore();
   }
 
   function prevMonth() { month--; if (month < 1) { month = 12; year--; } renderStats(); renderCal(); }
@@ -578,15 +595,15 @@
   });
   function swipeThreshold() { return 50; }
   function applySwipe(dx, dy) {
-    // 方向B：左/上 -> 下月，右/下 -> 上月；取位移较大的轴判定方向。
-    if (Math.abs(dx) >= Math.abs(dy)) { dx < 0 ? nextMonth() : prevMonth(); }
-    else { dy < 0 ? nextMonth() : prevMonth(); }
+    // 只左右翻月：左 -> 下月，右 -> 上月；垂直滑动交还页面滚动。
+    if (Math.abs(dx) > Math.abs(dy)) { dx < 0 ? nextMonth() : prevMonth(); }
   }
   function startSwipe(x, y) { swipeStart = { x: x, y: y }; swiped = false; }
   function moveSwipe(x, y) {
     if (!swipeStart) return false;
     var dx = x - swipeStart.x, dy = y - swipeStart.y;
-    if (Math.abs(dx) >= swipeThreshold() || Math.abs(dy) >= swipeThreshold()) {
+    // 只认水平滑动：水平位移超阈值且明显大于垂直位移。垂直滑动不处理，让页面正常滚动。
+    if (Math.abs(dx) >= swipeThreshold() && Math.abs(dx) > Math.abs(dy)) {
       if (touchTimer) { clearTimeout(touchTimer); touchTimer = null; }
       swiped = true;
       return { dx: dx, dy: dy };
@@ -868,6 +885,7 @@
   $('customText').oninput = function () { customDirty = true; };
   $('calYear').onchange = function () { year = Number($('calYear').value) || year; renderStats(); renderCal(); };
   $('calMonth').onchange = function () { month = Number($('calMonth').value) || month; renderStats(); renderCal(); };
+  if ($('moreToggle')) $('moreToggle').onclick = toggleMore;
   Array.prototype.slice.call(document.querySelectorAll('[data-fold]')).forEach(function (head) {
     head.onclick = function (e) {
       if (e.target.tagName === 'BUTTON') return;
