@@ -8,7 +8,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, ENTITY_TODAY, ENTITY_TODAY_REST, ENTITY_TOMORROW
+from .const import DOMAIN, ENTITY_TODAY, ENTITY_TOMORROW
 from .coordinator import MergedCoordinator
 
 
@@ -16,8 +16,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry,
                             async_add_entities: AddEntitiesCallback) -> None:
     coordinator: MergedCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities([TodaySensor(coordinator, entry),
-                        TomorrowSensor(coordinator, entry),
-                        TodayRestSensor(coordinator, entry)])
+                        TomorrowSensor(coordinator, entry)])
 
 
 class Base(CoordinatorEntity[MergedCoordinator], BinarySensorEntity):
@@ -69,21 +68,3 @@ class TomorrowSensor(Base):
         return bool(self.wd.get("tomorrow_work"))
 
 
-class TodayRestSensor(Base):
-    """今天是否休息日（与"今天是否工作日"互补，供自动化直接判断）。"""
-    _attr_name = "今天是否休息日"
-    _attr_icon = "mdi:beach"
-
-    def __init__(self, coordinator, entry):
-        super().__init__(coordinator, entry)
-        self.entity_id = ENTITY_TODAY_REST
-        self._attr_unique_id = f"{entry.entry_id}_today_rest"
-
-    @property
-    def is_on(self):
-        return not bool(self.wd.get("today_work"))
-
-    @property
-    def extra_state_attributes(self):
-        return {"date": (self.coordinator.data or {}).get("today"),
-                "label": self.wd.get("today_label")}
