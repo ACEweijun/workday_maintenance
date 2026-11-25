@@ -112,6 +112,7 @@
   'use strict';
   var M = window.MW, $ = M.$, S = null, year, month;
   var menuDate = null, selectedCell = null, suppressClick = false, touchTimer = null, touchXY = null;
+  var swipeStart = null, swiped = false;  // 滑动翻月：起点坐标/是否判定为滑动
   var addDate = null;
   var customDirty = false, dueTarget = null;
   var ANN_TYPES = { none: '不重复', week: '每周', month: '每月', quarter: '每季度', year: '每年' };
@@ -360,7 +361,11 @@
   function menuHtml() {
     if (!menuDate || !S) return '';
     var d = cellData(menuDate);
-    var h = '<div class="menu-add"><button class="primary" data-madd>+ 新增</button></div>';
+    // 菜单顶部：根据当前格子状态显示相反的标记按钮（简单版：上班<->休息）
+    var curWork = classify(M.dateOf(menuDate)).work;
+    var dayLabel = curWork ? '标为休息' : '标为上班';
+    var h = '<div class="menu-daytoggle"><button class="primary" data-mdayset>' + dayLabel + '</button></div>' +
+      '<div class="menu-add"><button class="primary" data-madd>+ 新增</button></div>';
     var rows = '';
     d.todos.forEach(function (t) {
       rows += '<div class="mrow"><input type="checkbox" class="menu-check" data-mtodo-check="' +
@@ -510,14 +515,34 @@
     applyFolds();
   }
 
-  $('prevM').onclick = function () { month--; if (month < 1) { month = 12; year--; } renderStats(); renderCal(); };
-  $('nextM').onclick = function () { month++; if (month > 12) { month = 1; year++; } renderStats(); renderCal(); };
+  function prevMonth() { month--; if (month < 1) { month = 12; year--; } renderStats(); renderCal(); }
+  function nextMonth() { month++; if (month > 12) { month = 1; year++; } renderStats(); renderCal(); }
+  $('prevM').onclick = prevMonth;
+  $('nextM').onclick = nextMonth;
+  // 桌面鼠标按住拖拽翻月（与 touch 共用 swiped 标志，避免重复触发）
+  $('cal').addEventListener('mousedown', function (e) {
+    if (e.button !== 0) return;
+    startSwipe(e.clientX, e.clientY);
+  });
+  $('cal').addEventListener('mousemove', function (e) {
+    if (e.buttons !== 1) return;
+    moveSwipe(e.clientX, e.clientY);
+  });
+  $('cal').addEventListener('mouseup', function (e) {
+    var mv = endSwipe(e.clientX, e.clientY);
+    if (mv) {
+      applySwipe(mv.dx, mv.dy);
+      suppressClick = true;
+      setTimeout(function () { suppressClick = false; }, 300);
+    }
+  });
   $('stats').onclick = function (e) {
     if (!S) return;
     if (e.target.closest && e.target.closest('[data-jump-today]')) { jumpToday(); return; }
     if (e.target.closest && e.target.closest('[data-jump-event]')) jumpToEvent();
   };
   $('cal').addEventListener('mouseover', function (e) {
+    if (swiped) { hideTip(); return; }  // 拖拽翻月中不弹格子提示
     var cell = e.target.closest && e.target.closest('[data-tip]');
     if (!cell) { hideTip(); return; }
     if (e.relatedTarget && cell.contains(e.relatedTarget)) { positionTip(e.clientX, e.clientY); return; }
@@ -535,16 +560,14 @@
   $('cal').onclick = function (e) {
     if (suppressClick) { suppressClick = false; return; }
     var cell = e.target.closest('[data-iso]'); if (!cell || !S) return;
-    var key = cell.dataset.iso, w = S.workday;
+    var key = cell.dataset.iso;
     if (!$('cellMenu').hidden) closeMenu();
     if (String(cell.className).indexOf('out') >= 0) {
       var jump = M.dateOf(key); year = jump.getFullYear(); month = jump.getMonth() + 1;
       selectedCell = key; renderStats(); renderCal(); return;
     }
     if (selectedCell !== key) { selectedCell = key; renderCal(); return; }
-    var mode = (w.custom_rest || []).indexOf(key) >= 0 || (w.custom_work || []).indexOf(key) >= 0
-      ? 'auto' : (classify(M.dateOf(key)).work ? 'rest' : 'work');
-    write('set_day', { date: key, mode: mode });
+    // 单击只选中；切换班休已移到右键/长按菜单顶部按钮，避免误触与滑动冲突。
   };
   $('cal').addEventListener('contextmenu', function (e) {
     var cell = e.target.closest && e.target.closest('[data-iso]'); if (!cell) return;
@@ -553,9 +576,33 @@
     renderCal();
     openMenu(cell.dataset.iso, e.clientX, e.clientY);
   });
+  function swipeThreshold() { return 50; }
+  function applySwipe(dx, dy) {
+    // 方向B：左/上 -> 下月，右/下 -> 上月；取位移较大的轴判定方向。
+    if (Math.abs(dx) >= Math.abs(dy)) { dx < 0 ? nextMonth() : prevMonth(); }
+    else { dy < 0 ? nextMonth() : prevMonth(); }
+  }
+  function startSwipe(x, y) { swipeStart = { x: x, y: y }; swiped = false; }
+  function moveSwipe(x, y) {
+    if (!swipeStart) return false;
+    var dx = x - swipeStart.x, dy = y - swipeStart.y;
+    if (Math.abs(dx) >= swipeThreshold() || Math.abs(dy) >= swipeThreshold()) {
+      if (touchTimer) { clearTimeout(touchTimer); touchTimer = null; }
+      swiped = true;
+      return { dx: dx, dy: dy };
+    }
+    return false;
+  }
+  function endSwipe(x, y) {
+    // 返回本次是否判定为滑动；swipeStart 在取完位移后才清空。
+    var was = swiped, start = swipeStart;
+    swipeStart = null; swiped = false;
+    return was ? { dx: x - start.x, dy: y - start.y } : null;
+  }
   $('cal').addEventListener('touchstart', function (e) {
     var cell = e.target.closest && e.target.closest('[data-iso]'); if (!cell || !e.touches.length) return;
     touchXY = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    startSwipe(touchXY.x, touchXY.y);
     touchTimer = setTimeout(function () {
       touchTimer = null; suppressClick = true;
       selectedCell = cell.dataset.iso;
@@ -564,15 +611,34 @@
       setTimeout(function () { suppressClick = false; }, 900);
     }, 600);
   }, { passive: true });
-  $('cal').addEventListener('touchend', function () {
+  $('cal').addEventListener('touchend', function (e) {
     if (touchTimer) { clearTimeout(touchTimer); touchTimer = null; }
+    if (e.changedTouches && e.changedTouches.length) {
+      var t = e.changedTouches[0];
+      var mv = endSwipe(t.clientX, t.clientY);
+      if (mv) {
+        applySwipe(mv.dx, mv.dy);
+        suppressClick = true;
+        setTimeout(function () { suppressClick = false; }, 300);
+      }
+    }
   });
-  $('cal').addEventListener('touchmove', function () {
-    if (touchTimer) { clearTimeout(touchTimer); touchTimer = null; }
-  });
+  $('cal').addEventListener('touchmove', function (e) {
+    if (!e.touches.length) return;
+    var m = moveSwipe(e.touches[0].clientX, e.touches[0].clientY);
+    if (m && touchTimer) { clearTimeout(touchTimer); touchTimer = null; }
+  }, { passive: true });
   $('cellMenu').onclick = function (e) {
     if (e && e.stopPropagation) e.stopPropagation();
     var t = e.target;
+    if (t.dataset.mdayset !== undefined) {
+      if (!menuDate || !S) return;
+      var key = menuDate;
+      var targetMode = classify(M.dateOf(key)).work ? 'rest' : 'work';
+      closeMenu();
+      write('set_day', { date: key, mode: targetMode });
+      return;
+    }
     if (t.dataset.madd !== undefined) {
       var date = menuDate;
       closeMenu();
