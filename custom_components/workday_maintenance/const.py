@@ -50,7 +50,6 @@ SCOPE_ALL = "all"
 
 ENTITY_TODAY = "binary_sensor.workday_maintenance_today"
 ENTITY_TOMORROW = "binary_sensor.workday_maintenance_tomorrow"
-ENTITY_TODAY_REST = "binary_sensor.workday_maintenance_today_rest"
 ENTITY_TODAY_DATE = "sensor.workday_maintenance_today_date"
 ENTITY_TODAY_WEEKDAY = "sensor.workday_maintenance_today_weekday"
 ENTITY_LEFT = "sensor.workday_maintenance_left"
