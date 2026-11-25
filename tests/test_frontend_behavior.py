@@ -311,5 +311,25 @@ class TestFrontendBehavior(unittest.TestCase):
         self.assertIn('OK', self.run_node(script))
 
 
+    def test_swipe_direction_mapping(self):
+        """方向B：左/上->下月，右/下->上月；取位移较大的轴。"""
+        w = (FE / 'workday.html').read_text(encoding='utf-8')
+        fn = w.split('function applySwipe(dx, dy) {')[1].split('\n  }')[0]
+        js = 'const calls=[];'
+        js += 'const prevMonth=()=>calls.push("prev");const nextMonth=()=>calls.push("next");'
+        js += 'function applySwipe(dx, dy) {' + fn + '}'
+        js += 'applySwipe(-80,10);applySwipe(80,-10);applySwipe(10,-80);applySwipe(-10,80);applySwipe(-30,20);'
+        js += 'console.log(calls.join(","));'
+        out = self.run_node(js)
+        self.assertEqual(out.strip(), 'next,prev,next,prev,next')
+
+    def test_day_toggle_label_uses_classify(self):
+        """菜单顶部按钮：上班->标为休息，休息->标为上班。"""
+        w = (FE / 'workday.html').read_text(encoding='utf-8')
+        self.assertIn("classify(M.dateOf(menuDate)).work", w)
+        self.assertIn("curWork ? '标为休息' : '标为上班'", w)
+        self.assertIn("classify(M.dateOf(key)).work ? 'rest' : 'work'", w)
+
+
 if __name__ == '__main__':
     unittest.main()
