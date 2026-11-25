@@ -866,7 +866,7 @@ class TestServiceSplit(unittest.TestCase):
 
 class TestCalendarGestures(unittest.TestCase):
     def test_day_toggle_in_menu_not_double_click(self):
-        """切换班休移到菜单顶部按钮，单击只选中；滑动翻月方向B。"""
+        """切换班休移到菜单顶部按钮，单击只选中；只左右翻月。"""
         w = (PKG / 'frontend' / 'workday.html').read_text(encoding='utf-8')
         # 菜单顶部状态切换按钮：按当前状态取反
         self.assertIn('data-mdayset', w)
@@ -874,11 +874,18 @@ class TestCalendarGestures(unittest.TestCase):
         self.assertIn('标为上班', w)
         # 双击切换逻辑已删除（原 mode/w/custom_rest 判断不在 onclick 里）
         self.assertNotIn("? 'auto' : (classify", w)
-        # 滑动翻月：方向B + 四方向
+        # 只左右翻月；垂直滑动交还页面滚动
         for token in ('function applySwipe', 'function startSwipe', 'function moveSwipe',
                       'function endSwipe', 'swipeThreshold', 'prevMonth', 'nextMonth',
                       "addEventListener('mousedown'", "addEventListener('touchmove'"):
             self.assertIn(token, w)
+        self.assertIn('Math.abs(dx) > Math.abs(dy)', w)  # 水平占优才翻月
+        # 四个折叠项收进「更多设置」面板
+        self.assertIn('id="moreToggle"', w)
+        self.assertIn('id="morePanel"', w)
+        self.assertLess(w.index('id="morePanel"'), w.index('data-fold="todos"'))
+        self.assertLess(w.index('data-fold="due"'), w.index('/morePanel'))
+        self.assertIn('function applyMore', w)
 
 
 class TestViewDomStructure(unittest.TestCase):
