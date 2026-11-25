@@ -864,6 +864,23 @@ class TestServiceSplit(unittest.TestCase):
         self.assertLess(len(init.splitlines()), 300, '__init__.py 应保持精简')
 
 
+class TestCalendarGestures(unittest.TestCase):
+    def test_day_toggle_in_menu_not_double_click(self):
+        """切换班休移到菜单顶部按钮，单击只选中；滑动翻月方向B。"""
+        w = (PKG / 'frontend' / 'workday.html').read_text(encoding='utf-8')
+        # 菜单顶部状态切换按钮：按当前状态取反
+        self.assertIn('data-mdayset', w)
+        self.assertIn('标为休息', w)
+        self.assertIn('标为上班', w)
+        # 双击切换逻辑已删除（原 mode/w/custom_rest 判断不在 onclick 里）
+        self.assertNotIn("? 'auto' : (classify", w)
+        # 滑动翻月：方向B + 四方向
+        for token in ('function applySwipe', 'function startSwipe', 'function moveSwipe',
+                      'function endSwipe', 'swipeThreshold', 'prevMonth', 'nextMonth',
+                      "addEventListener('mousedown'", "addEventListener('touchmove'"):
+            self.assertIn(token, w)
+
+
 class TestViewDomStructure(unittest.TestCase):
     def test_normal_view_wraps_items_and_history(self):
         """normalView 必须包住小项与历史区，否则切设置页时它们不会隐藏。"""
