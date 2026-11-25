@@ -14,5 +14,5 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/ACEweijun/workday_maintenance/issues",
   "requirements": [],
-  "version": "2.11.0"
+  "version": "2.12.0"
 }
