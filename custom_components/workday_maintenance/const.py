@@ -43,6 +43,7 @@ STATUS_DUE = "due"
 STATUS_SOON = "soon"
 STATUS_OK = "ok"
 STATUS_UNSET = "unset"
+STATUS_DISABLED = "disabled"
 
 SCOPE_WORKDAY = "workday"
 SCOPE_MAINTENANCE = "maintenance"
