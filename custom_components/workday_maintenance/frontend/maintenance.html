@@ -138,6 +138,7 @@
       <div><label>间隔天数</label><input type="number" id="itemDays" value="180"></div>
       <div id="itemIntervalBox" hidden><label>间隔计数（可留空）</label><input type="number" id="itemInterval" placeholder="10000"></div>
       <div><label>备注</label><input id="itemNote"></div>
+      <div class="full"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="itemDisabled" style="width:auto"> 禁用这个小项（不再提醒，排在列表最后）</label></div>
       <div class="full" id="itemPushSlot"></div>
       <div class="full modal-actions"><button class="primary" id="itemSave">保存</button>
         <button class="ghost danger" id="itemDelete" hidden>删除这个小项</button>
@@ -346,7 +347,7 @@
     var p = project();
     if (!p) { $('items').innerHTML = '<div class="hint">先新建一个项目。</div>'; return; }
     // 按状态排序：已到期置顶，其次快到了/未设基准/正常；同状态保持原顺序。
-    var priority = { due: 0, soon: 1, unset: 2, ok: 3 };
+    var priority = { due: 0, soon: 1, unset: 2, ok: 3, disabled: 4 };
     var sorted = (p.items || []).map(function (i, idx) {
       return { item: i, idx: idx, status: stateOf(i.id).status || 'unset' };
     }).sort(function (a, b) {
@@ -380,6 +381,14 @@
           (r.counter != null ? ' · ' + M.esc(r.counter) : '') + '</span><span class="txt">' +
           M.esc(e.note || '') + '</span></div>';
       }).join('') + (recs.length > 5 ? '<div class="hint">还有 ' + (recs.length - 5) + ' 条</div>' : '') : '';
+      if (i.disabled) {
+        return '<div class="mt-item st-disabled"><div class="top item-title" data-item="' + M.esc(i.id) +
+          '" title="点名称编辑小项">' +
+          '<b data-itemname title="点击编辑小项">' + M.esc(i.name) + '</b>' +
+          '<span class="disabled-badge">已禁用</span>' +
+          '<button class="ghost item-enable" data-itemenable="' + M.esc(i.id) + '">恢复</button>' +
+          '</div></div>';
+      }
       return '<div class="mt-item st-' + M.esc(st.status || 'unset') + '"><div class="top item-title" data-item="' + M.esc(i.id) +
         '" title="点名称编辑小项 · 点空白处给它记一次新维护">' +
         '<b data-itemname title="点击编辑小项">' + M.esc(i.name) + '</b>' +
@@ -550,6 +559,7 @@
     $('itemIntervalBox').hidden = !p.need_counter;
     $('itemInterval').value = p.need_counter && i && i.interval_counter != null ? i.interval_counter : '';
     $('itemNote').value = i ? (i.note || '') : '';
+    $('itemDisabled').checked = !!(i && i.disabled);
     var slot = $('itemPushSlot');
     if (slot && !slot.firstChild) { slot.innerHTML = M.pushFormHtml('item', true); M.bindPushForm('item'); }
     M.fillPushForm('item', i && i.push);
@@ -722,6 +732,7 @@
     var id = $('itemId').value;
     var data = { slug: slug, name: $('itemName').value.trim(),
       interval_days: Number($('itemDays').value), note: $('itemNote').value,
+      disabled: !!$('itemDisabled').checked,
       push: M.readPushForm('item') };
     if ($('itemInterval').value !== '') data.interval_counter = Number($('itemInterval').value);
     if (!data.name) { M.toast('维护内容不能为空', true); return; }
@@ -733,6 +744,8 @@
   $('items').onclick = function (e) {
     var p = project(); if (!p) return;
     var t = e.target;
+    var en = t.closest && t.closest('[data-itemenable]');
+    if (en) { write('update_item', { slug: slug, item_id: en.dataset.itemenable, disabled: false }); return; }
     var tg = t.closest && t.closest('[data-rectoggle]');
     if (tg) { itemOpen[tg.dataset.rectoggle] = !itemOpen[tg.dataset.rectoggle]; renderItems(); return; }
     var own = t.closest && t.closest('[data-recitem]');
