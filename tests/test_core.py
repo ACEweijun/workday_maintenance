@@ -192,6 +192,35 @@ class TestMaintenance(unittest.TestCase):
         self.assertIn('卡罗拉', text)
         self.assertIn('维护小项', text)
 
+    def test_disabled_item_state(self):
+        """禁用项状态为 disabled，带 disabled 标记。"""
+        item = self.project['items'][0]
+        item['last_date'] = '2026-01-01'
+        item['interval_days'] = 30  # 本应到期
+        item['disabled'] = True
+        state = mnt.item_state(item, self.project, self.today, 7)
+        self.assertEqual(state['status'], 'disabled')
+        self.assertTrue(state['disabled'])
+
+    def test_disabled_item_not_in_due_or_summary(self):
+        """禁用项不计入到期统计、不进 all_due_items（不会触发提醒）。"""
+        item = self.project['items'][0]
+        item['last_date'] = '2026-01-01'
+        item['interval_days'] = 30
+        item['disabled'] = True
+        summary = mnt.project_summary(self.project, self.today, 7)
+        self.assertEqual(summary['due_count'], 0)
+        self.assertNotIn(item['name'], summary['due_names'])
+        items = mnt.all_due_items([self.project], self.today, 7)
+        self.assertFalse(any(i['item_id'] == item['id'] for i in items))
+
+    def test_disabled_item_in_export(self):
+        """导出里禁用项标注"已禁用"。"""
+        item = self.project['items'][0]
+        item['disabled'] = True
+        text = mnt.export_markdown(self.project, self.today, 7)
+        self.assertIn('已禁用', text)
+
 
 class TestRepo(unittest.TestCase):
     def test_manifest(self):
@@ -817,7 +846,7 @@ class TestItemStatusDisplay(unittest.TestCase):
     def test_items_sorted_by_status(self):
         """小项按状态排序：已到期置顶，同状态保持原顺序。"""
         m = (PKG / 'frontend' / 'maintenance.html').read_text(encoding='utf-8')
-        self.assertIn('var priority = { due: 0, soon: 1, unset: 2, ok: 3 };', m)
+        self.assertIn('var priority = { due: 0, soon: 1, unset: 2, ok: 3, disabled: 4 };', m)
         self.assertIn('sorted.map(function (entry)', m)
         self.assertIn('a.idx - b.idx', m)
         self.assertIn('stateOf(i.id).status', m)
