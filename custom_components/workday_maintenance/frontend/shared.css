@@ -445,3 +445,11 @@ input[type=checkbox]{width:22px;height:22px;min-height:22px;padding:0;margin:0;f
 .more-toggle .chev{color:var(--muted);font-size:12px;width:12px}
 #morePanel{display:flex;flex-direction:column;gap:14px;margin-top:10px}
 #morePanel[hidden]{display:none}
+
+/* ── 禁用维护小项：垫底 + 灰化 + 删除线 + 标签 ────────────── */
+.mt-item.st-disabled{opacity:.55;background:var(--inset)}
+.mt-item.st-disabled::before{background:var(--muted);opacity:.35}
+.mt-item.st-disabled b{text-decoration:line-through;color:var(--muted)}
+.mt-item .disabled-badge{font-size:10px;padding:1px 6px;border-radius:8px;
+  background:var(--muted);color:var(--surface);white-space:nowrap}
+.mt-item .item-enable{flex:none;padding:2px 8px;font-size:11px}
