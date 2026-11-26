@@ -5,7 +5,7 @@ import datetime as dt
 import hashlib
 import re
 
-from .const import PRESETS, STATUS_DUE, STATUS_OK, STATUS_SOON, STATUS_UNSET
+from .const import PRESETS, STATUS_DISABLED, STATUS_DUE, STATUS_OK, STATUS_SOON, STATUS_UNSET
 from .workday import parse_date
 
 
@@ -55,6 +55,22 @@ def make_project(slug: str, name: str, kind: str, need_counter: bool,
 
 
 def item_state(item: dict, project: dict, today: dt.date, soon_days: int) -> dict:
+    # 禁用的小项：状态直接标 disabled，不参与到期/快到判断（但仍返回完整字段供界面显示）
+    if item.get("disabled"):
+        return {
+            "id": item.get("id"),
+            "name": item.get("name"),
+            "status": STATUS_DISABLED,
+            "remaining_days": None,
+            "remaining_counter": None,
+            "due_date": None,
+            "last_date": item.get("last_date"),
+            "last_counter": item.get("last_counter"),
+            "interval_days": item.get("interval_days"),
+            "interval_counter": item.get("interval_counter"),
+            "note": item.get("note") or "",
+            "disabled": True,
+        }
     last_date = item.get("last_date")
     interval_days = item.get("interval_days")
     remaining_days = None
@@ -110,6 +126,7 @@ def item_state(item: dict, project: dict, today: dt.date, soon_days: int) -> dic
         "interval_days": interval_days,
         "interval_counter": interval_counter,
         "note": item.get("note") or "",
+        "disabled": False,
     }
 
 
@@ -224,7 +241,8 @@ def export_markdown(project: dict, today: dt.date, soon_days: int) -> str:
     lines.append("| 维护小项 | 状态 | 上次维护 | 还剩 |")
     lines.append("|---|---|---|---|")
     labels = {STATUS_DUE: "已到期", STATUS_SOON: "快到了",
-              STATUS_OK: "正常", STATUS_UNSET: "未设基准"}
+              STATUS_OK: "正常", STATUS_UNSET: "未设基准",
+              STATUS_DISABLED: "已禁用"}
     for s in summary["items"]:
         left = f"{s['remaining_days']} 天" if s["remaining_days"] is not None else "—"
         lines.append(f"| {s['name']} | {labels.get(s['status'], '')} | "
