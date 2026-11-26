@@ -331,5 +331,14 @@ class TestFrontendBehavior(unittest.TestCase):
         self.assertIn("classify(M.dateOf(key)).work ? 'rest' : 'work'", w)
 
 
+    def test_item_disable_ui(self):
+        """禁用勾选框、垫底排序、灰化标注、一键恢复。"""
+        h = (FE / 'maintenance.html').read_text(encoding='utf-8')
+        for token in ('id="itemDisabled"', "itemDisabled').checked",
+                      "disabled: !!$('itemDisabled').checked", 'disabled: 4',
+                      'st-disabled', 'disabled-badge', 'data-itemenable'):
+            self.assertIn(token, h)
+
+
 if __name__ == '__main__':
     unittest.main()
