@@ -337,6 +337,7 @@ def async_register_services(hass: HomeAssistant, coordinator: MergedCoordinator,
                 "last_date": None, "last_counter": None,
                 "note": str(call.data.get("note") or ""),
                 "push": _pr.normalize_push(call.data.get("push")),
+                "disabled": bool(call.data.get("disabled", False)),
             }
             project["items"].append(item)
             return item["id"]
@@ -349,9 +350,14 @@ def async_register_services(hass: HomeAssistant, coordinator: MergedCoordinator,
 
         def mutate(raw):
             item = _item(_project(raw, slug), item_id)
-            for key in ("name", "interval_days", "interval_counter", "note", "push"):
+            for key in ("name", "interval_days", "interval_counter", "note", "push", "disabled"):
                 if key in call.data:
-                    item[key] = _pr.normalize_push(call.data[key]) if key == "push" else call.data[key]
+                    if key == "push":
+                        item[key] = _pr.normalize_push(call.data[key])
+                    elif key == "disabled":
+                        item[key] = bool(call.data[key])
+                    else:
+                        item[key] = call.data[key]
 
         await coordinator.async_mutate(SCOPE_MAINTENANCE, mutate)
         return {"slug": slug, "item_id": item_id}
